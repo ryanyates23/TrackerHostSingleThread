@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <stdio.h>
 #include <fstream>
 #include <iostream>
@@ -78,14 +79,32 @@ void TCPReceive(int socket, uchar* buffer)
     }
 }
 
+Mat drawROI(Mat frame, ROI_t ROI)
+{
+    if(ROI.mode == IDL)
+    {
+        cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,0,255));
+    }
+    else if(ROI.mode == ACQ)
+    {
+        cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,255,255));
+    }
+    else if(ROI.mode == TRK)
+    {
+        cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,255,0));
+    }
+    
+    return frame;
+}
+
 int main(int argc, char *argv[])
 {
     //-------------------BASIC INIT--------------------------//
-    int x,y;
+    int x,y,k;
     int frame = 0;
     int showInput = 0;
     float fps;
-    int fileID = 1;
+    int fileID = 0;
     string filename;
     char keyPressed;
     int abort = 0;
@@ -108,10 +127,12 @@ int main(int argc, char *argv[])
     uchar sendBuffer[WIDTH*HEIGHT];
     uchar receiveBuffer[WIDTH*HEIGHT];
     Mat inputImage;
+    Mat displayImage;
     Vec3b pixel;
     int vecSize = WIDTH*HEIGHT;
     vector<uchar> h_frame_in(vecSize);
     vector<uchar> h_frame_out(vecSize);
+    vector<uchar> h_display_frame(vecSize*3);
     VideoCapture cap;
     
     
@@ -227,8 +248,6 @@ int main(int argc, char *argv[])
         
         //-----------TCP RECEIVE----------------------------------//
         TCPReceive(sockfd, receiveBuffer);
-        
-        //-----------DISPLAY FRAME--------------------------------//
         for (y = 0; y < HEIGHT; y++)
         {
             for (x = 0; x < WIDTH-1; x++)
@@ -237,9 +256,38 @@ int main(int argc, char *argv[])
                 h_frame_out[y*WIDTH + x] = receiveBuffer[y*WIDTH + x];
             }
         }
-        inputImage = Mat(HEIGHT, WIDTH, CV_8U, (float*)h_frame_out.data());
+        
+        ROI.size = h_frame_out[1];
+        ROI.xMSB = h_frame_out[2];
+        ROI.xLSB = h_frame_out[3];
+        ROI.yMSB = h_frame_out[4];
+        ROI.yLSB = h_frame_out[5];
+        ROI.mode = h_frame_out[6];
+        
+        k=0;
+        for (y = 0; y < HEIGHT; y++)
+        {
+            for (x = 0; x < WIDTH; x++)
+            {
+                h_display_frame[k] = h_frame_out[y*WIDTH+x];
+                k++;
+                h_display_frame[k] = h_frame_out[y*WIDTH+x];
+                k++;
+                h_display_frame[k] = h_frame_out[y*WIDTH+x];
+                k++;
+            }
+        }
+        
+        
+        //-----------DISPLAY FRAME--------------------------------//
+
+        inputImage = Mat(HEIGHT, WIDTH, CV_8UC3, (float*)h_display_frame.data());
+        
+        displayImage = drawROI(inputImage, ROI);
+        
+        
         namedWindow("ReceivedImage", WINDOW_AUTOSIZE);
-        imshow("ReceivedImage", inputImage);
+        imshow("ReceivedImage", displayImage);
         
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
