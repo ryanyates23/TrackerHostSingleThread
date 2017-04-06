@@ -16,11 +16,30 @@
 #define WIDTH 1280
 #define HEIGHT 720
 
+#define ROISIZE 64
+
+#define IDL 0
+#define ACQ 1
+#define TRK 2
+
 //#define WIDTH 1024
 //#define HEIGHT 576
 
 using namespace std;
 using namespace cv;
+
+
+struct ROI_t {
+    int x;
+    int y;
+    unsigned char size;
+    unsigned char xLSB;
+    unsigned char xMSB;
+    unsigned char yLSB;
+    unsigned char yMSB;
+    unsigned char mode;
+    unsigned char reqMode;
+} ROI;
 
 void error(const char *msg)
 {
@@ -28,14 +47,62 @@ void error(const char *msg)
     exit(0);
 }
 
+void TCPSend(int socket, uchar* buffer)
+{
+    int totalBytesWritten = 0;
+    int vecSize = WIDTH*HEIGHT;
+    int n;
+    while(totalBytesWritten != vecSize)
+    {
+        n = (int)write(socket,&buffer[totalBytesWritten],vecSize);
+        //cout << "Bytes Written: " << n << endl;
+        if (n < 0)
+            error("ERROR writing to socket");
+        totalBytesWritten += n;
+    }
+}
+
+void TCPReceive(int socket, uchar* buffer)
+{
+    int totalBytesRead = 0;
+    int vecSize = WIDTH*HEIGHT;
+    bzero(buffer,vecSize);
+    int n;
+    totalBytesRead = 0;
+    while(totalBytesRead != vecSize)
+    {
+        n = (int)read(socket,&buffer[totalBytesRead],vecSize - totalBytesRead);
+        if (n < 0) error("ERROR reading from socket");
+        
+        totalBytesRead += n;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     //-------------------BASIC INIT--------------------------//
     int x,y;
+    int frame = 0;
     int showInput = 0;
     float fps;
     int fileID = 1;
     string filename;
+    char keyPressed;
+    int abort = 0;
+    
+    uchar configByte = 0;
+    uchar filterType = 2;
+    uchar enSobel = 1;
+    uchar enBinarise = 1;
+    uchar enCombine = 0;
+    uchar enCombineFiltering = 0;
+    
+    //-------------------ROI SETUP---------------------------//
+    ROI.x = 0;
+    ROI.y = 0;
+    ROI.size = ROISIZE;
+    ROI.mode = IDL;
+    ROI.reqMode = IDL;
     
     //-------------------OPENCV INIT-------------------------//
     uchar sendBuffer[WIDTH*HEIGHT];
@@ -46,6 +113,8 @@ int main(int argc, char *argv[])
     vector<uchar> h_frame_in(vecSize);
     vector<uchar> h_frame_out(vecSize);
     VideoCapture cap;
+    
+    
     
     
     if(fileID == 0)
@@ -76,9 +145,7 @@ int main(int argc, char *argv[])
     
     
     //-------------------TCP CLIENT INIT-----------------------//
-    int totalBytesWritten = 0;
-    int totalBytesRead = 0;
-    int sockfd, portno, n;
+    int sockfd, portno;
     struct sockaddr_in serv_addr;
     struct hostent *server;
     
@@ -109,6 +176,14 @@ int main(int argc, char *argv[])
     
     while(1)
     {
+        
+        //-------------Set up config bytes----------------------//
+        configByte = (filterType | (enSobel << 2) | (enBinarise << 3) | (enCombine << 4) | (enCombineFiltering << 5) | (abort << 6));
+        ROI.xMSB = (ROI.x & 0xff00) >> 8;
+        ROI.xLSB = (ROI.x & 0x00ff);
+        ROI.yMSB = (ROI.y & 0xff00) >> 8;
+        ROI.yLSB = (ROI.y & 0x00ff);
+        
         //-------------CAPTURE FRAME----------------------------//
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         cap >> inputImage;
@@ -134,31 +209,24 @@ int main(int argc, char *argv[])
         }
         
         //-------------TCP SEND-----------------------------------//
-        //bzero(sendBuffer,vecSize);
-        //fgets(sendBuffer,WIDTH*HEIGHT-1,stdin);
-        totalBytesWritten = 0;
-        while(totalBytesWritten != vecSize)
-        {
-            n = (int)write(sockfd,&sendBuffer[totalBytesWritten],vecSize);
-            //cout << "Bytes Written: " << n << endl;
-            if (n < 0)
-                error("ERROR writing to socket");
-            totalBytesWritten += n;
-        }
+        sendBuffer[0] = configByte;
+        sendBuffer[1] = ROI.size;
+        sendBuffer[2] = ROI.xMSB;
+        sendBuffer[3] = ROI.xLSB;
+        sendBuffer[4] = ROI.yMSB;
+        sendBuffer[5] = ROI.yLSB;
+        sendBuffer[6] = ROI.mode;
+        sendBuffer[7] = ROI.reqMode;
+        
+        TCPSend(sockfd, sendBuffer);
+
         
         //bzero(sendBuffer,vecSize);
+        
+        cout << "ConfigByte: " << (int)configByte << endl;
         
         //-----------TCP RECEIVE----------------------------------//
-        bzero(receiveBuffer,vecSize);
-        totalBytesRead = 0;
-        while(totalBytesRead != vecSize)
-        {
-            n = (int)read(sockfd,&receiveBuffer[totalBytesRead],vecSize - totalBytesRead);
-            if (n < 0) error("ERROR reading from socket");
-            
-            totalBytesRead += n;
-        }
-        //std::cout << "Frame Received" << std::endl;
+        TCPReceive(sockfd, receiveBuffer);
         
         //-----------DISPLAY FRAME--------------------------------//
         for (y = 0; y < HEIGHT; y++)
@@ -176,11 +244,77 @@ int main(int argc, char *argv[])
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
         fps = 1000000/duration;
+
+        cout << "ROI - x: " << ROI.x << " y: " << ROI.y << " size: " << (int)ROI.size << endl;
+        cout << "Mode: " << (int)ROI.mode << " ReqMode: " << (int)ROI.reqMode << endl;
         
-        std::cout << fps << std::endl;
-        
-        waitKey(1);
+        keyPressed = (char)waitKey(10);
+        if(frame > 10)
+        {
+            switch(keyPressed)
+            {
+                case(102): //102 = f
+                    filterType = (filterType+1) % 4;
+                    cout << "Filter Type: " << (int)filterType << endl;
+                    break;
+                case(101): //101 = e
+                    enSobel = !enSobel;
+                    cout << "Edge Detection: " << (int)enSobel << endl;
+                    break;
+                case(98): //98 = b
+                    enBinarise = !enBinarise;
+                    cout << "Binarisation: " << (int)enBinarise << endl;
+                    break;
+                case(99): //99 = c
+                    enCombine = !enCombine;
+                    cout << "Combine: " << (int)enCombine << endl;
+                    break;
+                case(118): //118 = v
+                    enCombineFiltering = !enCombineFiltering;
+                    cout << "Combine Filtering: " << (int)enCombineFiltering << endl;
+                    break;
+                case(27): //27 = escape
+                    abort = 1;
+                    break;
+                case(112): //112 = p
+                    keyPressed = 0;
+                    while(keyPressed != 112) keyPressed = waitKey(10);
+                    break;
+                case(119): //119 = w
+                    while(keyPressed == 119){
+                        keyPressed = (char)waitKey(1);
+                        if(ROI.y > 0) ROI.y-=10;
+                    }
+                    break;
+                case(115): //115 = s
+                    while(keyPressed == 115){
+                        keyPressed = (char)waitKey(1);
+                        if(ROI.y < HEIGHT) ROI.y+=10;
+                    }
+                    break;
+                case(97): //97 = a
+                    while(keyPressed == 97){
+                        keyPressed = (char)waitKey(1);
+                        if(ROI.x > 0) ROI.x-=10;
+                    }
+                    break;
+                case(100): //100 = d
+                    while(keyPressed == 100){
+                        keyPressed = (char)waitKey(1);
+                        if(ROI.x < WIDTH) ROI.x+=10;
+                    }
+                    break;
+                case(13): //13 = return
+                    if(ROI.mode == IDL) ROI.reqMode = ACQ;
+                    else if(ROI.mode == TRK) ROI.reqMode = IDL;
+                default:
+                    break;
+            }
+        }
         //--------------------------------------------------------//
+        //if(abort) break;
+        frame++;
+
         
     }
     close(sockfd);
