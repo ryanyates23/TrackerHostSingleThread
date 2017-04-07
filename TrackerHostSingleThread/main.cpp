@@ -23,6 +23,8 @@
 #define ACQ 1
 #define TRK 2
 
+#define FILEID 1
+
 //#define WIDTH 1024
 //#define HEIGHT 576
 
@@ -104,7 +106,7 @@ int main(int argc, char *argv[])
     int frame = 0;
     int showInput = 0;
     float fps;
-    int fileID = 0;
+    int fileID = FILEID;
     string filename;
     char keyPressed;
     int abort = 0;
@@ -117,8 +119,8 @@ int main(int argc, char *argv[])
     uchar enCombineFiltering = 0;
     
     //-------------------ROI SETUP---------------------------//
-    ROI.x = 0;
-    ROI.y = 0;
+    ROI.x = 600;
+    ROI.y = 330;
     ROI.size = ROISIZE;
     ROI.mode = IDL;
     ROI.reqMode = IDL;
@@ -244,7 +246,7 @@ int main(int argc, char *argv[])
         
         //bzero(sendBuffer,vecSize);
         
-        cout << "ConfigByte: " << (int)configByte << endl;
+        //cout << "ConfigByte: " << (int)configByte << endl;
         
         //-----------TCP RECEIVE----------------------------------//
         TCPReceive(sockfd, receiveBuffer);
@@ -263,6 +265,9 @@ int main(int argc, char *argv[])
         ROI.yMSB = h_frame_out[4];
         ROI.yLSB = h_frame_out[5];
         ROI.mode = h_frame_out[6];
+        
+        ROI.x = (int)ROI.xMSB*256 + (int)ROI.xLSB;
+        ROI.y = (int)ROI.yMSB*256 + (int)ROI.yLSB;
         
         k=0;
         for (y = 0; y < HEIGHT; y++)
@@ -293,8 +298,8 @@ int main(int argc, char *argv[])
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
         fps = 1000000/duration;
 
-        cout << "ROI - x: " << ROI.x << " y: " << ROI.y << " size: " << (int)ROI.size << endl;
-        cout << "Mode: " << (int)ROI.mode << " ReqMode: " << (int)ROI.reqMode << endl;
+//        cout << "ROI - x: " << ROI.x << " y: " << ROI.y << " size: " << (int)ROI.size << endl;
+//        cout << "Mode: " << (int)ROI.mode << " ReqMode: " << (int)ROI.reqMode << endl;
         
         keyPressed = (char)waitKey(10);
         if(frame > 10)
@@ -354,7 +359,7 @@ int main(int argc, char *argv[])
                     break;
                 case(13): //13 = return
                     if(ROI.mode == IDL) ROI.reqMode = ACQ;
-                    else if(ROI.mode == TRK) ROI.reqMode = IDL;
+                    else if(ROI.mode == TRK || ROI.mode == ACQ) ROI.reqMode = IDL;
                 default:
                     break;
             }
