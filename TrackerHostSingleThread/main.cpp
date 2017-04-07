@@ -17,13 +17,14 @@
 #define WIDTH 1280
 #define HEIGHT 720
 
-#define ROISIZE 64
+#define ROISIZE 128
 
 #define IDL 0
 #define ACQ 1
 #define TRK 2
 
-#define FILEID 1
+#define FILEID 3
+
 
 //#define WIDTH 1024
 //#define HEIGHT 576
@@ -42,6 +43,10 @@ struct ROI_t {
     unsigned char yMSB;
     unsigned char mode;
     unsigned char reqMode;
+    unsigned char xTGT;
+    unsigned char yTGT;
+    unsigned char wTGT;
+    unsigned char hTGT;
 } ROI;
 
 void error(const char *msg)
@@ -96,6 +101,12 @@ Mat drawROI(Mat frame, ROI_t ROI)
         cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,255,0));
     }
     
+    if(ROI.hTGT != 0)
+    {
+        cout << "TGT - x: " << (int)ROI.xTGT << " y: " << (int)ROI.yTGT << endl;
+        cv::rectangle(frame, Point(ROI.x+ROI.xTGT, ROI.y+ROI.yTGT), Point(ROI.x+ROI.xTGT+ROI.wTGT, ROI.y+ROI.yTGT+ROI.hTGT), Scalar(0,0,255));
+    }
+    
     return frame;
 }
 
@@ -104,7 +115,7 @@ int main(int argc, char *argv[])
     //-------------------BASIC INIT--------------------------//
     int x,y,k;
     int frame = 0;
-    int showInput = 0;
+    bool showInput = true;
     float fps;
     int fileID = FILEID;
     string filename;
@@ -112,7 +123,7 @@ int main(int argc, char *argv[])
     int abort = 0;
     
     uchar configByte = 0;
-    uchar filterType = 2;
+    uchar filterType = 0;
     uchar enSobel = 1;
     uchar enBinarise = 1;
     uchar enCombine = 0;
@@ -223,13 +234,7 @@ int main(int argc, char *argv[])
             }
         }
         
-        if (showInput == 1)
-        {
-            inputImage =  Mat(HEIGHT, WIDTH, CV_8U, (float*)h_frame_in.data());
-            namedWindow("Sent Image", WINDOW_AUTOSIZE);
-            imshow("Sent Image", inputImage);
-            //waitKey(17);
-        }
+        
         
         //-------------TCP SEND-----------------------------------//
         sendBuffer[0] = configByte;
@@ -242,6 +247,11 @@ int main(int argc, char *argv[])
         sendBuffer[7] = ROI.reqMode;
         
         TCPSend(sockfd, sendBuffer);
+        
+        ROI.xTGT = 0;
+        ROI.yTGT = 0;
+        ROI.wTGT = 0;
+        ROI.hTGT = 0;
 
         
         //bzero(sendBuffer,vecSize);
@@ -265,9 +275,12 @@ int main(int argc, char *argv[])
         ROI.yMSB = h_frame_out[4];
         ROI.yLSB = h_frame_out[5];
         ROI.mode = h_frame_out[6];
+        ROI.xTGT = h_frame_out[7];
+        ROI.yTGT = h_frame_out[8];
+        ROI.wTGT = h_frame_out[9];
+        ROI.hTGT = h_frame_out[10];
         
-        ROI.x = (int)ROI.xMSB*256 + (int)ROI.xLSB;
-        ROI.y = (int)ROI.yMSB*256 + (int)ROI.yLSB;
+        
         
         k=0;
         for (y = 0; y < HEIGHT; y++)
@@ -286,13 +299,19 @@ int main(int argc, char *argv[])
         
         //-----------DISPLAY FRAME--------------------------------//
 
-        inputImage = Mat(HEIGHT, WIDTH, CV_8UC3, (float*)h_display_frame.data());
+        if(showInput == false)
+        {
+            inputImage = Mat(HEIGHT, WIDTH, CV_8UC3, (float*)h_display_frame.data());
+        }
         
         displayImage = drawROI(inputImage, ROI);
         
         
         namedWindow("ReceivedImage", WINDOW_AUTOSIZE);
         imshow("ReceivedImage", displayImage);
+        
+        ROI.x = (int)ROI.xMSB*256 + (int)ROI.xLSB;
+        ROI.y = (int)ROI.yMSB*256 + (int)ROI.yLSB;
         
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
@@ -302,7 +321,7 @@ int main(int argc, char *argv[])
 //        cout << "Mode: " << (int)ROI.mode << " ReqMode: " << (int)ROI.reqMode << endl;
         
         keyPressed = (char)waitKey(10);
-        if(frame > 10)
+        if(frame > 3)
         {
             switch(keyPressed)
             {
@@ -360,6 +379,10 @@ int main(int argc, char *argv[])
                 case(13): //13 = return
                     if(ROI.mode == IDL) ROI.reqMode = ACQ;
                     else if(ROI.mode == TRK || ROI.mode == ACQ) ROI.reqMode = IDL;
+                    break;
+                case(105)://105 = i
+                    showInput = !showInput;
+                    break;
                 default:
                     break;
             }
