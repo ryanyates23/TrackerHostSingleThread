@@ -18,12 +18,14 @@
 #define HEIGHT 720
 
 #define ROISIZE 128
+#define ROIWIDTH 128
+#define ROIHEIGHT 128
 
 #define IDL 0
 #define ACQ 1
 #define TRK 2
 
-#define FILEID 3
+#define FILEID 1
 
 
 //#define WIDTH 1024
@@ -108,6 +110,17 @@ Mat drawROI(Mat frame, ROI_t ROI)
     }
     
     return frame;
+}
+
+void openCVCallback(int event, int x, int y, int flags, void* userdata)
+{
+    if(event == EVENT_LBUTTONDOWN)
+    {
+        ROI.x = x - ROIWIDTH/2;
+        ROI.y = y - ROIHEIGHT/2;
+        if(ROI.mode == IDL) ROI.reqMode = ACQ;
+        else ROI.reqMode = IDL;
+    }
 }
 
 int main(int argc, char *argv[])
@@ -308,6 +321,7 @@ int main(int argc, char *argv[])
         
         
         namedWindow("ReceivedImage", WINDOW_AUTOSIZE);
+        setMouseCallback("ReceivedImage", openCVCallback, NULL);
         imshow("ReceivedImage", displayImage);
         
         ROI.x = (int)ROI.xMSB*256 + (int)ROI.xLSB;
