@@ -25,7 +25,7 @@
 #define ACQ 1
 #define TRK 2
 
-#define FILEID 1
+#define FILEID 2
 
 
 //#define WIDTH 1024
@@ -120,6 +120,11 @@ void openCVCallback(int event, int x, int y, int flags, void* userdata)
         ROI.y = y - ROIHEIGHT/2;
         if(ROI.mode == IDL) ROI.reqMode = ACQ;
         else ROI.reqMode = IDL;
+        
+        if(ROI.x < 0) ROI.x = 0;
+        if(ROI.x > WIDTH-ROI.size) ROI.x = WIDTH - ROI.size;
+        if(ROI.y < 0) ROI.y = 0;
+        if(ROI.y > HEIGHT - ROI.size) ROI.y = HEIGHT - ROI.size;
     }
 }
 
