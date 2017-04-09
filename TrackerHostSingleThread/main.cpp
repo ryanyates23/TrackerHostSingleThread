@@ -25,7 +25,7 @@
 #define ACQ 1
 #define TRK 2
 
-#define FILEID 2
+#define FILEID 3
 
 
 //#define WIDTH 1024
@@ -297,6 +297,7 @@ int main(int argc, char *argv[])
         ROI.yTGT = h_frame_out[8];
         ROI.wTGT = h_frame_out[9];
         ROI.hTGT = h_frame_out[10];
+        ROI.reqMode = ROI.mode;
         
         
         
