@@ -25,7 +25,12 @@
 #define ACQ 1
 #define TRK 2
 
-#define FILEID 3
+#define FILEID 1
+
+#define THRESHUP 1
+#define THRESHDOWN 2
+
+#define XHAIRSIZE 10
 
 
 //#define WIDTH 1024
@@ -105,9 +110,12 @@ Mat drawROI(Mat frame, ROI_t ROI)
     
     if(ROI.hTGT != 0)
     {
-        cout << "TGT - x: " << (int)ROI.xTGT << " y: " << (int)ROI.yTGT << endl;
+        cout << "TGT - x: " << (int)ROI.xTGT + ROI.x - WIDTH/2 << " y: " << (int)ROI.yTGT + ROI.y - HEIGHT/2 << endl;
         cv::rectangle(frame, Point(ROI.x+ROI.xTGT, ROI.y+ROI.yTGT), Point(ROI.x+ROI.xTGT+ROI.wTGT, ROI.y+ROI.yTGT+ROI.hTGT), Scalar(0,0,255));
     }
+    
+    cv::line(frame, Point(WIDTH/2, HEIGHT/2-XHAIRSIZE), Point(WIDTH/2, HEIGHT/2+XHAIRSIZE), Scalar(255,255,255));
+    cv::line(frame, Point(WIDTH/2-XHAIRSIZE, HEIGHT/2), Point(WIDTH/2+XHAIRSIZE, HEIGHT/2), Scalar(255,255,255));
     
     return frame;
 }
@@ -147,9 +155,11 @@ int main(int argc, char *argv[])
     uchar enCombine = 0;
     uchar enCombineFiltering = 0;
     
+    uchar adjustThresh =
+    
     //-------------------ROI SETUP---------------------------//
-    ROI.x = 600;
-    ROI.y = 330;
+    ROI.x = WIDTH/2-ROIWIDTH/2;
+    ROI.y = HEIGHT/2-ROIHEIGHT/2;
     ROI.size = ROISIZE;
     ROI.mode = IDL;
     ROI.reqMode = IDL;
@@ -263,6 +273,7 @@ int main(int argc, char *argv[])
         sendBuffer[5] = ROI.yLSB;
         sendBuffer[6] = ROI.mode;
         sendBuffer[7] = ROI.reqMode;
+        sendBuffer[8] = adjustThresh;
         
         TCPSend(sockfd, sendBuffer);
         
@@ -340,6 +351,8 @@ int main(int argc, char *argv[])
 //        cout << "ROI - x: " << ROI.x << " y: " << ROI.y << " size: " << (int)ROI.size << endl;
 //        cout << "Mode: " << (int)ROI.mode << " ReqMode: " << (int)ROI.reqMode << endl;
         
+        adjustThresh = 0;
+        
         keyPressed = (char)waitKey(10);
         if(frame > 3)
         {
@@ -402,6 +415,12 @@ int main(int argc, char *argv[])
                     break;
                 case(105)://105 = i
                     showInput = !showInput;
+                    break;
+                case(61): //61 = =
+                    adjustThresh = THRESHUP;
+                    break;
+                case(45):
+                    adjustThresh = THRESHDOWN;
                     break;
                 default:
                     break;
