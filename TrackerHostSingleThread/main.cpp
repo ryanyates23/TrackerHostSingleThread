@@ -17,9 +17,9 @@
 #define WIDTH 1280
 #define HEIGHT 720
 
-#define ROISIZE 128
-#define ROIWIDTH 128
-#define ROIHEIGHT 128
+//#define ROISIZE 100
+#define ROIWIDTH 150
+#define ROIHEIGHT 150
 
 #define IDL 0
 #define ACQ 1
@@ -155,12 +155,12 @@ int main(int argc, char *argv[])
     uchar enCombine = 0;
     uchar enCombineFiltering = 0;
     
-    uchar adjustThresh =
+    uchar adjustThresh = 0;
     
     //-------------------ROI SETUP---------------------------//
     ROI.x = WIDTH/2-ROIWIDTH/2;
     ROI.y = HEIGHT/2-ROIHEIGHT/2;
-    ROI.size = ROISIZE;
+    ROI.size = ROIWIDTH;
     ROI.mode = IDL;
     ROI.reqMode = IDL;
     
@@ -190,6 +190,7 @@ int main(int argc, char *argv[])
         else if(fileID == 2) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Low in Front of Trees.mp4";
         else if(fileID == 3) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Mid Height Stable Camera.mp4";
         else if(fileID == 4) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Low with Mixed Background.mp4";
+        else if(fileID == 5) filename = "/Users/ryanyates/Documents/Work/Project/Videos/VID_20170228_144943.mp4";
         
         cap.open(filename);
     }
@@ -419,9 +420,15 @@ int main(int argc, char *argv[])
                 case(61): //61 = =
                     adjustThresh = THRESHUP;
                     break;
-                case(45):
+                case(45): // 45 = -
                     adjustThresh = THRESHDOWN;
                     break;
+//                case(43): //43 = +
+//                    ROI.size += 10;
+//                    break;
+//                case(95): //95 = _
+//                    ROI.size -= 10;
+//                    break;
                 default:
                     break;
             }
