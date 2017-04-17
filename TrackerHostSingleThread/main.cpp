@@ -25,7 +25,7 @@
 #define ACQ 1
 #define TRK 2
 
-#define FILEID 1
+#define FILEID 3
 
 #define THRESHUP 1
 #define THRESHDOWN 2
@@ -111,7 +111,7 @@ Mat drawROI(Mat frame, ROI_t ROI)
     if(ROI.hTGT != 0)
     {
         cout << "TGT - x: " << (int)ROI.xTGT + ROI.x - WIDTH/2 << " y: " << (int)ROI.yTGT + ROI.y - HEIGHT/2 << endl;
-        cv::rectangle(frame, Point(ROI.x+ROI.xTGT, ROI.y+ROI.yTGT), Point(ROI.x+ROI.xTGT+ROI.wTGT, ROI.y+ROI.yTGT+ROI.hTGT), Scalar(0,0,255));
+        cv::rectangle(frame, Point(ROI.x+ROI.xTGT-1, ROI.y+ROI.yTGT-1), Point(ROI.x+ROI.xTGT+ROI.wTGT, ROI.y+ROI.yTGT+ROI.hTGT), Scalar(0,0,255));
     }
     
     cv::line(frame, Point(WIDTH/2, HEIGHT/2-XHAIRSIZE), Point(WIDTH/2, HEIGHT/2+XHAIRSIZE), Scalar(255,255,255));
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
         
         adjustThresh = 0;
         
-        keyPressed = (char)waitKey(10);
+        keyPressed = (char)waitKey(5);
         if(frame > 3)
         {
             switch(keyPressed)
@@ -436,6 +436,11 @@ int main(int argc, char *argv[])
         //--------------------------------------------------------//
         //if(abort) break;
         frame++;
+        if(frame == 1135)
+        {
+            cout << frame << endl;
+        }
+        cout << frame << endl;
 
         
     }
