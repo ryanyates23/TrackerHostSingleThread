@@ -25,12 +25,14 @@
 #define ACQ 1
 #define TRK 2
 
-#define FILEID 3
+#define FILEID 1
 
 #define THRESHUP 1
 #define THRESHDOWN 2
 
 #define XHAIRSIZE 10
+
+#define DRAWGUI 1
 
 
 //#define WIDTH 1024
@@ -95,27 +97,30 @@ void TCPReceive(int socket, uchar* buffer)
 
 Mat drawROI(Mat frame, ROI_t ROI)
 {
-    if(ROI.mode == IDL)
+    if(DRAWGUI)
     {
-        cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,0,255));
+        if(ROI.mode == IDL)
+        {
+            cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,0,255));
+        }
+        else if(ROI.mode == ACQ)
+        {
+            cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,255,255));
+        }
+        else if(ROI.mode == TRK)
+        {
+            cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,255,0));
+        }
+
+        if(ROI.hTGT != 0)
+        {
+            cout << "TGT - x: " << (int)ROI.xTGT + ROI.x - WIDTH/2 << " y: " << (int)ROI.yTGT + ROI.y - HEIGHT/2 << endl;
+            cv::rectangle(frame, Point(ROI.x+ROI.xTGT-1, ROI.y+ROI.yTGT-1), Point(ROI.x+ROI.xTGT+ROI.wTGT, ROI.y+ROI.yTGT+ROI.hTGT), Scalar(0,0,255));
+        }
+
+        cv::line(frame, Point(WIDTH/2, HEIGHT/2-XHAIRSIZE), Point(WIDTH/2, HEIGHT/2+XHAIRSIZE), Scalar(255,255,255));
+        cv::line(frame, Point(WIDTH/2-XHAIRSIZE, HEIGHT/2), Point(WIDTH/2+XHAIRSIZE, HEIGHT/2), Scalar(255,255,255));
     }
-    else if(ROI.mode == ACQ)
-    {
-        cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,255,255));
-    }
-    else if(ROI.mode == TRK)
-    {
-        cv::rectangle(frame, Point(ROI.x,ROI.y), Point(ROI.x+ROI.size, ROI.y+ROI.size), Scalar(0,255,0));
-    }
-    
-    if(ROI.hTGT != 0)
-    {
-        cout << "TGT - x: " << (int)ROI.xTGT + ROI.x - WIDTH/2 << " y: " << (int)ROI.yTGT + ROI.y - HEIGHT/2 << endl;
-        cv::rectangle(frame, Point(ROI.x+ROI.xTGT-1, ROI.y+ROI.yTGT-1), Point(ROI.x+ROI.xTGT+ROI.wTGT, ROI.y+ROI.yTGT+ROI.hTGT), Scalar(0,0,255));
-    }
-    
-    cv::line(frame, Point(WIDTH/2, HEIGHT/2-XHAIRSIZE), Point(WIDTH/2, HEIGHT/2+XHAIRSIZE), Scalar(255,255,255));
-    cv::line(frame, Point(WIDTH/2-XHAIRSIZE, HEIGHT/2), Point(WIDTH/2+XHAIRSIZE, HEIGHT/2), Scalar(255,255,255));
     
     return frame;
 }
@@ -133,6 +138,7 @@ void openCVCallback(int event, int x, int y, int flags, void* userdata)
         if(ROI.x > WIDTH-ROI.size) ROI.x = WIDTH - ROI.size;
         if(ROI.y < 0) ROI.y = 0;
         if(ROI.y > HEIGHT - ROI.size) ROI.y = HEIGHT - ROI.size;
+        
     }
 }
 
@@ -190,7 +196,8 @@ int main(int argc, char *argv[])
         else if(fileID == 2) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Low in Front of Trees.mp4";
         else if(fileID == 3) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Mid Height Stable Camera.mp4";
         else if(fileID == 4) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Low with Mixed Background.mp4";
-        else if(fileID == 5) filename = "/Users/ryanyates/Documents/Work/Project/Videos/VID_20170228_144943.mp4";
+        else if(fileID == 5) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Big Clip 720.mp4";
+        else if(fileID == 6) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Poster CLip 720.mp4";
         
         cap.open(filename);
     }
